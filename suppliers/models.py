@@ -1,7 +1,6 @@
 from django.db import models
-from django.db.models import ManyToManyField, ForeignKey
-from rest_framework.exceptions import ValidationError
-from rest_framework.fields import CharField, EmailField, DecimalField, DateTimeField
+from django.db.models import ManyToManyField, ForeignKey, CharField, EmailField, DecimalField, DateTimeField
+from django.core.exceptions import ValidationError
 
 
 class Product(models.Model):
@@ -35,10 +34,11 @@ class Supplier(models.Model):
     city = CharField(max_length=200, verbose_name='Город')
     street = CharField(max_length=200, verbose_name='Улица')
     house_number = CharField(max_length=200, verbose_name='Номер дома')
-    products = ManyToManyField(Product, verbose_name='Продукты', null=True, blank=True)
+    products = ManyToManyField(Product, verbose_name='Продукты', blank=True)
     parent = ForeignKey('self', on_delete=models.SET_NULL, verbose_name='Поставщик',
                         null=True, blank=True, related_name='children')
-    debt = DecimalField(max_digits=16, decimal_places=2, default=0, verbose_name='Задолженность')
+    debt = DecimalField(max_digits=16, decimal_places=2, default=0, verbose_name='Задолженность',
+                        help_text='Задолженность перед поставщиком в рублях')
     created_at = DateTimeField(auto_now_add=True, verbose_name='Время создания')
 
     def __str__(self):
@@ -61,6 +61,11 @@ class Supplier(models.Model):
     def clean(self):
         if self.type == self.FACTORY and self.parent:
             raise ValidationError('Завод не может иметь поставщика')
+
+        if self.type == self.FACTORY and self.debt != 0:
+            raise ValidationError({
+                'debt': 'Завод не может иметь задолженности. Установите 0.'
+            })
 
         if self.parent and self.parent.pk == self.pk:
             raise ValidationError('Невозможно быть поставщиком для себя')
